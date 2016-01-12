@@ -31,15 +31,14 @@ using namespace std;
 //
 // Swap the endianness of an 4-byte integer.
 //
-uint32_t
-swap32(uint32_t a)
+uint32_t swap32( uint32_t a )
 {
     char b1, b2, b3, b4 = 0;
     b1 = a;
     b2 = a >> 8;
     b3 = a >> 16;
     b4 = a >> 24;
-    return (b1 << 24) + (b2 << 16) + (b3 << 8) + b4;
+    return ( b1 << 24 ) + ( b2 << 16 ) + ( b3 << 8 ) + b4;
 }
 
 struct au_header
@@ -52,33 +51,40 @@ struct au_header
     uint32_t nchannels;
 };
 
-string
-au_header_tostr(au_header &h)
+string au_header_tostr( au_header &h )
 {
     stringstream ss;
-    ss << h.header_size << " header bytes, " << 
-        h.nsamples << " samples, encoding type: " << h.encoding << ", " 
-        << h.sample_rate << "Hz, " << h.nchannels << " channels";
+    ss << h.header_size << " header bytes, " << h.nsamples << " samples, encoding type: " << h.encoding << ", " << h.sample_rate << "Hz, "
+            << h.nchannels << " channels";
     return ss.str();
 }
 
-int
-main(int argc, char **argv)
+class Callback: public IDtmfDetectorCallback
 {
-    if (argc != 2)
+public:
+
+    virtual void on_detect( const char button )
+    {
+        cout << "detected '" << button << "'" << endl;
+    }
+};
+
+int main( int argc, char **argv )
+{
+    if( argc != 2 )
     {
         cerr << "usage: " << argv[0] << " filename.au" << endl;
         return 1;
     }
 
-    ifstream fin(argv[1], ios::binary);
-    if (!fin.good())
+    ifstream fin( argv[1], ios::binary );
+    if( !fin.good() )
     {
         cerr << argv[1] << ": unable to open file" << endl;
         return 1;
     }
     au_header header;
-    fin.read((char *)&header, sizeof(au_header));
+    fin.read( (char *)&header, sizeof(au_header) );
 
     //
     // The data in the AU file header is stored in big-endian byte ordering.
@@ -87,16 +93,16 @@ main(int argc, char **argv)
     // possible, this example does not support them, since they are relatively
     // rare.
     //
-    if (header.magic == AU_MAGIC)
+    if( header.magic == AU_MAGIC )
     {
     }
-    else if (header.magic == swap32(AU_MAGIC))
+    else if( header.magic == swap32( AU_MAGIC ) )
     {
-        header.header_size = swap32(header.header_size);
-        header.nsamples = swap32(header.nsamples);
-        header.encoding = swap32(header.encoding);
-        header.sample_rate = swap32(header.sample_rate);
-        header.nchannels = swap32(header.nchannels);
+        header.header_size = swap32( header.header_size );
+        header.nsamples = swap32( header.nsamples );
+        header.encoding = swap32( header.encoding );
+        header.sample_rate = swap32( header.sample_rate );
+        header.nchannels = swap32( header.nchannels );
     }
     else
     {
@@ -104,7 +110,7 @@ main(int argc, char **argv)
         return 1;
     }
 
-    cout << argv[1] << ": " << au_header_tostr(header) << endl;
+    cout << argv[1] << ": " << au_header_tostr( header ) << endl;
     //
     // This example only supports a specific type of AU format:
     //
@@ -113,37 +119,28 @@ main(int argc, char **argv)
     // - 8KHz sample rate
     // - mono
     //
-    if 
-    (
-        header.header_size != 24
-        ||
-        header.encoding != 2
-        ||
-        header.sample_rate != 8000
-        ||
-        header.nchannels != 1
-    )
+    if( header.header_size != 24 || header.encoding != 2 || header.sample_rate != 8000 || header.nchannels != 1 )
     {
         cerr << argv[1] << ": unsupported AU format" << endl;
         return 1;
     }
 
+    Callback callback;
+
     char cbuf[BUFLEN];
     short sbuf[BUFLEN];
-    DtmfDetector detector(BUFLEN);
-    for (uint32_t i = 0; i < header.nsamples; i += BUFLEN)
+    DtmfDetector detector( BUFLEN, & callback );
+    for( uint32_t i = 0; i < header.nsamples; i += BUFLEN )
     {
-        fin.read(cbuf, BUFLEN);
+        fin.read( cbuf, BUFLEN );
         //
         // Promote our 8-bit samples to 16 bits, since that's what the detector
         // expects.  Shift them left during promotion, since the decoder won't
         // pick them up otherwise (volume too low).
         //
-        for (int j = 0; j < BUFLEN; ++j)
+        for( int j = 0; j < BUFLEN; ++j )
             sbuf[j] = cbuf[j] << 8;
-        detector.zerosIndexDialButton();
-        detector.dtmfDetecting(sbuf);
-        cout << i << ": `" << detector.getDialButtonsArray() << "'" << endl;
+        detector.process( sbuf );
     }
     cout << endl;
     fin.close();

@@ -3,7 +3,7 @@
 #
 CPP=g++
 INCLUDES=
-CFLAGS=-Wall -ggdb
+CFLAGS=-Wall -ggdb -std=c++0x
 LDFLAGS=
 EXE=example.out detect-au.out
 SRC=DtmfDetector.cpp DtmfGenerator.cpp
@@ -21,15 +21,12 @@ debug: all
 # $< is the first dependency in the dependency list
 # $@ is the target name
 #
-all: dirs $(addprefix bin/, $(EXE)) tags
+all: dirs $(addprefix bin/, $(EXE))
 
 
 dirs:
 	mkdir -p obj
 	mkdir -p bin
-
-tags: *.cpp *.hpp
-	ctags *.cpp *.hpp
 
 bin/%.out: obj/%.o $(OBJ)
 	$(CPP) $(CFLAGS) $< $(OBJ) $(LDFLAGS) -o $@
