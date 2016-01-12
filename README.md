@@ -1,10 +1,12 @@
-dtmf-cpp
-========
+dtmf_detector
+=============
 
 C++ DTMF detector and generator classes
 
 The original code was written by Plyashkevich Viatcheslav <plyashkevich@yandex.ru>
 and is available in its original form at http://sourceforge.net/projects/dtmf/
+
+Extended by Sergey Kolevatov.
 
 Main features:
 
@@ -14,7 +16,7 @@ Main features:
 Installation
 ------------
 
-    git clone https://github.com/mpenkov/dtmf-cpp.git
-    cd dtmf-cpp
+    git clone https://github.com/trodevel/dtmf_detector.git
+    cd dtmf_detector
     make
     bin/detect-au.out test-data/Dtmf0.au
