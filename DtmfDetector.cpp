@@ -137,45 +137,45 @@ const int16_t DtmfDetector::CONSTANTS[COEFF_NUMBER] =
         16384,  // 5: 1333Hz, harmonics: 78Hz
         12773,  // 6: 1490Hz, harmonics: 78Hz, 2980Hz
         8967,   // 7: 1547Hz, harmonics: 314Hz, 392Hz
-        // The next coefficients correspond to frequencies of harmonics of the
-        // near-DTMF frequencies above, as well as of other frequencies listed
-        // below.
+                // The next coefficients correspond to frequencies of harmonics of the
+                // near-DTMF frequencies above, as well as of other frequencies listed
+                // below.
         21319,  // 1098Hz
         29769,  // 549Hz
-        // 549Hz is:
-        // - half of 1098Hz (see above)
-        // - 1/3 of 1633Hz, a real DTMF frequency (see DtmfGenerator)
-        32706,// 78Hz, a very low D# on a piano
-        // 78Hz is a very convenient frequency, since its (approximately):
-        // - 1/3 of 235Hz (not a DTMF frequency, but we do detect it, see below)
-        // - 1/4 of 314Hz (not a DTMF frequency, but we do detect it, see below)
-        // - 1/5 of 392Hz (not a DTMF frequency, but we do detect it, see below)
-        // - 1/7 of 549Hz
-        // - 1/9 of 706Hz
-        // - 1/10 of 784Hz
-        // - 1/11 of 863Hz
-        // - 1/12 of 941Hz
-        // - 1/14 of 1098Hz (not a DTMF frequency, but we do detect it, see above)
-        // - 1/15 of 1176Hz
-        // - 1/17 of 1333Hz
-        // - 1/19 of 1490Hz
-        32210,// 235Hz
-        // 235Hz is:
-        // - 1/3 of 706Hz
-        // - 1/4 of 941Hz
-        // - 1/5 of 1176Hz
-        // - 1/15 of 3529Hz (not a DTMF frequency, but we do detect it, see below)
-        31778,// 314Hz
-        // 314Hz is:
-        // - 1/3 of 941Hz
-        // - 1/5 of 1547Hz
-        // - 1/8 of 2510Hz (not a DTMF frequency, but we do detect it, see below)
-        31226,// 392Hz, apparently a middle-2 G
-        // 392Hz is:
-        // - 1/2 of 794Hz
-        // - 1/3 of 1176Hz
-        // - 1/4 of 1547Hz
-        // - 1/9 of 3529Hz
+                // 549Hz is:
+                // - half of 1098Hz (see above)
+                // - 1/3 of 1633Hz, a real DTMF frequency (see DtmfGenerator)
+        32706,  // 78Hz, a very low D# on a piano
+                // 78Hz is a very convenient frequency, since its (approximately):
+                // - 1/3 of 235Hz (not a DTMF frequency, but we do detect it, see below)
+                // - 1/4 of 314Hz (not a DTMF frequency, but we do detect it, see below)
+                // - 1/5 of 392Hz (not a DTMF frequency, but we do detect it, see below)
+                // - 1/7 of 549Hz
+                // - 1/9 of 706Hz
+                // - 1/10 of 784Hz
+                // - 1/11 of 863Hz
+                // - 1/12 of 941Hz
+                // - 1/14 of 1098Hz (not a DTMF frequency, but we do detect it, see above)
+                // - 1/15 of 1176Hz
+                // - 1/17 of 1333Hz
+                // - 1/19 of 1490Hz
+        32210,  // 235Hz
+                // 235Hz is:
+                // - 1/3 of 706Hz
+                // - 1/4 of 941Hz
+                // - 1/5 of 1176Hz
+                // - 1/15 of 3529Hz (not a DTMF frequency, but we do detect it, see below)
+        31778,  // 314Hz
+                // 314Hz is:
+                // - 1/3 of 941Hz
+                // - 1/5 of 1547Hz
+                // - 1/8 of 2510Hz (not a DTMF frequency, but we do detect it, see below)
+        31226,  // 392Hz, apparently a middle-2 G
+                // 392Hz is:
+                // - 1/2 of 794Hz
+                // - 1/3 of 1176Hz
+                // - 1/4 of 1547Hz
+                // - 1/9 of 3529Hz
         -1009,  // 2039Hz TODO: why is this frequency useful?
         -12772, // 2510Hz, which is 8*314Hz
         -22811, // 2980Hz, which is 2*1490Hz
