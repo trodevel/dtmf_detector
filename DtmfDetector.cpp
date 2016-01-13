@@ -8,9 +8,14 @@
 #include <cassert>
 #include "DtmfDetector.hpp"
 
+#include "IDtmfDetectorCallback.hpp"    // IDtmfDetectorCallback
+
 #if DEBUG
 #include <cstdio>
 #endif
+
+namespace dtmf
+{
 
 // This is the same function as in DtmfGenerator.cpp
 static inline int32_t MPY48SR( int16_t o16, int32_t o32 )
@@ -33,8 +38,13 @@ static inline int32_t MPY48SR( int16_t o16, int32_t o32 )
 // Magnitude1       Detected magnitude of the second frequency.
 // COUNT            The number of elements in arraySamples.  Always equal to
 //                  SAMPLES in practice.
-static void goertzel_filter( int16_t Koeff0, int16_t Koeff1, const int16_t arraySamples[], int32_t *Magnitude0, int32_t *Magnitude1,
-        uint32_t COUNT )
+static void goertzel_filter(
+        int16_t         Koeff0,
+        int16_t         Koeff1,
+        const int16_t   arraySamples[],
+        int32_t         *Magnitude0,
+        int32_t         *Magnitude1,
+        uint32_t        COUNT )
 {
     int32_t Temp0, Temp1;
     uint16_t ii;
@@ -112,10 +122,10 @@ const unsigned DtmfDetector::COEFF_NUMBER;
 // http://en.wikipedia.org/wiki/Dual-tone_multi-frequency_signaling
 //
 // Some frequencies seem to match musical notes:
-// http://www.geocities.jp/pyua51113/artist_data/ki_setsumei.html 
+// http://www.geocities.jp/pyua51113/artist_data/ki_setsumei.html
 // http://en.wikipedia.org/wiki/Piano_key_frequencies
 //
-// It seems this is done to simplify harmonic detection.  
+// It seems this is done to simplify harmonic detection.
 //
 const int16_t DtmfDetector::CONSTANTS[COEFF_NUMBER] =
 {
@@ -171,29 +181,29 @@ const int16_t DtmfDetector::CONSTANTS[COEFF_NUMBER] =
         -22811, // 2980Hz, which is 2*1490Hz
         -30555  // 3529Hz, 3*1176Hz, 5*706Hz
         };
-int32_t DtmfDetector::powerThreshold = 328;
-int32_t DtmfDetector::dialTonesToOhersTones = 16;
-int32_t DtmfDetector::dialTonesToOhersDialTones = 6;
+int32_t DtmfDetector::power_threshold_ = 328;
+int32_t DtmfDetector::dial_tones_to_ohers_tones_ = 16;
+int32_t DtmfDetector::dial_tones_to_ohers_dial_tones_ = 6;
 const int32_t DtmfDetector::SAMPLES = 102;
 //--------------------------------------------------------------------
-DtmfDetector::DtmfDetector( int32_t frameSize_, IDtmfDetectorCallback * callback ) :
-        frameSize( frameSize_ ), callback_( callback )
+DtmfDetector::DtmfDetector( int32_t frame_size, IDtmfDetectorCallback * callback ) :
+        frame_size_( frame_size ), callback_( callback )
 {
-    // 
+    //
     // This array is padded to keep the last batch, which is smaller
     // than SAMPLES, from the previous call to dtmfDetecting.
     //
-    pArraySamples = new int16_t[frameSize + SAMPLES];
-    internalArray = new int16_t[SAMPLES];
-    frameCount = 0;
-    prevDialButton = ' ';
-    permissionFlag = 0;
+    ptr_array_samples_  = new int16_t[frame_size_ + SAMPLES];
+    internal_array_     = new int16_t[SAMPLES];
+    frame_count_        = 0;
+    prev_dial_button_   = ' ';
+    permission_flag_    = 0;
 }
 //---------------------------------------------------------------------
 DtmfDetector::~DtmfDetector()
 {
-    delete[] pArraySamples;
-    delete[] internalArray;
+    delete[] ptr_array_samples_;
+    delete[] internal_array_;
 }
 
 void DtmfDetector::process( int16_t input_array[] )
@@ -206,28 +216,28 @@ void DtmfDetector::process( int16_t input_array[] )
     // Copy the input array into the middle of pArraySamples.
     // I think the first frameCount samples contain the last batch from the
     // previous call to this function.
-    for( ii = 0; ii < frameSize; ii++ )
+    for( ii = 0; ii < frame_size_; ii++ )
     {
-        pArraySamples[ii + frameCount] = input_array[ii];
+        ptr_array_samples_[ii + frame_count_] = input_array[ii];
     }
 
-    frameCount += frameSize;
+    frame_count_ += frame_size_;
     // Read index into pArraySamples that corresponds to the current batch.
     uint32_t temp_index = 0;
     // If don't have enough samples to process an entire batch, then don't
     // do anything.
-    if( frameCount >= SAMPLES )
+    if( frame_count_ >= SAMPLES )
     {
         // Process samples while we still have enough for an entire
         // batch.
-        while( frameCount >= SAMPLES )
+        while( frame_count_ >= SAMPLES )
         {
             // Determine the tone present in the current batch
-            temp_dial_button = DTMF_detection( &pArraySamples[temp_index] );
+            temp_dial_button = detect_dtmf( &ptr_array_samples_[temp_index] );
 
             // Determine if we should register it as a new tone, or
-            // ignore it as a continuation of a previously 
-            // registered tone.  
+            // ignore it as a continuation of a previously
+            // registered tone.
             //
             // This seems buggy.  Consider a sequence of three
             // tones, with each tone corresponding to the dominant
@@ -236,31 +246,31 @@ void DtmfDetector::process( int16_t input_array[] )
             // SILENCE TONE_A TONE_B will get registered as TONE_B
             //
             // TONE_A will be ignored.
-            if( permissionFlag )
+            if( permission_flag_ )
             {
                 if( temp_dial_button != ' ' )
                 {
                     if( callback_ )
                         callback_->on_detect( temp_dial_button );
                 }
-                permissionFlag = 0;
+                permission_flag_ = 0;
             }
 
             // If we've gone from silence to a tone, set the flag.
             // The tone will be registered in the next iteration.
-            if( ( temp_dial_button != ' ' ) && ( prevDialButton == ' ' ) )
+            if( ( temp_dial_button != ' ' ) && ( prev_dial_button_ == ' ' ) )
             {
-                permissionFlag = 1;
+                permission_flag_ = 1;
             }
 
             // Store the current tone.  In light of the above
             // behaviour, all that really matters is whether it was
             // a tone or silence.  Finally, move on to the next
             // batch.
-            prevDialButton = temp_dial_button;
+            prev_dial_button_ = temp_dial_button;
 
             temp_index += SAMPLES;
-            frameCount -= SAMPLES;
+            frame_count_ -= SAMPLES;
         }
 
         //
@@ -269,21 +279,21 @@ void DtmfDetector::process( int16_t input_array[] )
         // samples to the beginning of our array and deal with them
         // next time this function is called.
         //
-        for( ii = 0; ii < frameCount; ii++ )
+        for( ii = 0; ii < frame_count_; ii++ )
         {
-            pArraySamples[ii] = pArraySamples[ii + temp_index];
+            ptr_array_samples_[ii] = ptr_array_samples_[ii + temp_index];
         }
     }
 
 }
 //-----------------------------------------------------------------
 // Detect a tone in a single batch of samples (SAMPLES elements).
-char DtmfDetector::DTMF_detection( int16_t short_array_samples[] )
+char DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
 {
-    int32_t Dial = 32, Sum;
+    int32_t Dial = 32;
     char return_value = ' ';
     unsigned ii;
-    Sum = 0;
+    int32_t Sum = 0;
 
     // Dial         TODO: what is this?
     // Sum          Sum of the absolute values of samples in the batch.
@@ -299,11 +309,11 @@ char DtmfDetector::DTMF_detection( int16_t short_array_samples[] )
             Sum -= short_array_samples[ii];
     }
     Sum /= SAMPLES;
-    if( Sum < powerThreshold )
+    if( Sum < power_threshold_ )
         return ' ';
 
     //Normalization
-    // Iterate over each sample.  
+    // Iterate over each sample.
     // First, adjusting Dial to an appropriate value for the batch.
     for( ii = 0; ii < SAMPLES; ii++ )
     {
@@ -323,19 +333,19 @@ char DtmfDetector::DTMF_detection( int16_t short_array_samples[] )
     for( ii = 0; ii < SAMPLES; ii++ )
     {
         T[0] = short_array_samples[ii];
-        internalArray[ii] = static_cast<int16_t>( T[0] << Dial );
+        internal_array_[ii] = static_cast<int16_t>( T[0] << Dial );
     }
 
     //Frequency detection
-    goertzel_filter( CONSTANTS[0], CONSTANTS[1], internalArray, &T[0], &T[1], SAMPLES );
-    goertzel_filter( CONSTANTS[2], CONSTANTS[3], internalArray, &T[2], &T[3], SAMPLES );
-    goertzel_filter( CONSTANTS[4], CONSTANTS[5], internalArray, &T[4], &T[5], SAMPLES );
-    goertzel_filter( CONSTANTS[6], CONSTANTS[7], internalArray, &T[6], &T[7], SAMPLES );
-    goertzel_filter( CONSTANTS[8], CONSTANTS[9], internalArray, &T[8], &T[9], SAMPLES );
-    goertzel_filter( CONSTANTS[10], CONSTANTS[11], internalArray, &T[10], &T[11], SAMPLES );
-    goertzel_filter( CONSTANTS[12], CONSTANTS[13], internalArray, &T[12], &T[13], SAMPLES );
-    goertzel_filter( CONSTANTS[14], CONSTANTS[15], internalArray, &T[14], &T[15], SAMPLES );
-    goertzel_filter( CONSTANTS[16], CONSTANTS[17], internalArray, &T[16], &T[17], SAMPLES );
+    goertzel_filter( CONSTANTS[0], CONSTANTS[1], internal_array_, &T[0], &T[1], SAMPLES );
+    goertzel_filter( CONSTANTS[2], CONSTANTS[3], internal_array_, &T[2], &T[3], SAMPLES );
+    goertzel_filter( CONSTANTS[4], CONSTANTS[5], internal_array_, &T[4], &T[5], SAMPLES );
+    goertzel_filter( CONSTANTS[6], CONSTANTS[7], internal_array_, &T[6], &T[7], SAMPLES );
+    goertzel_filter( CONSTANTS[8], CONSTANTS[9], internal_array_, &T[8], &T[9], SAMPLES );
+    goertzel_filter( CONSTANTS[10], CONSTANTS[11], internal_array_, &T[10], &T[11], SAMPLES );
+    goertzel_filter( CONSTANTS[12], CONSTANTS[13], internal_array_, &T[12], &T[13], SAMPLES );
+    goertzel_filter( CONSTANTS[14], CONSTANTS[15], internal_array_, &T[14], &T[15], SAMPLES );
+    goertzel_filter( CONSTANTS[16], CONSTANTS[17], internal_array_, &T[16], &T[17], SAMPLES );
 
 #if DEBUG
     for (ii = 0; ii < COEFF_NUMBER; ++ii)
@@ -346,7 +356,7 @@ char DtmfDetector::DTMF_detection( int16_t short_array_samples[] )
     int32_t Row = 0;
     int32_t Temp = 0;
     // Row      Index of the maximum row frequency in T
-    // Temp     The frequency at the maximum row/column (gets reused 
+    // Temp     The frequency at the maximum row/column (gets reused
     //          below).
     //Find max row(low frequences) tones
     for( ii = 0; ii < 4; ii++ )
@@ -390,9 +400,9 @@ char DtmfDetector::DTMF_detection( int16_t short_array_samples[] )
     //are less then threshold then return
     // This means the tones are too quiet compared to the other, non-max
     // DTMF frequencies.
-    if( T[Row] / Sum < dialTonesToOhersDialTones )
+    if( T[Row] / Sum < dial_tones_to_ohers_dial_tones_ )
         return ' ';
-    if( T[Column] / Sum < dialTonesToOhersDialTones )
+    if( T[Column] / Sum < dial_tones_to_ohers_dial_tones_ )
         return ' ';
 
     // Next, check if the volume of the row and column frequencies
@@ -419,9 +429,9 @@ char DtmfDetector::DTMF_detection( int16_t short_array_samples[] )
     // Check for the presence of strong harmonics.
     for( ii = 10; ii < COEFF_NUMBER; ii++ )
     {
-        if( T[Row] / T[ii] < dialTonesToOhersTones )
+        if( T[Row] / T[ii] < dial_tones_to_ohers_tones_ )
             return ' ';
-        if( T[Column] / T[ii] < dialTonesToOhersTones )
+        if( T[Column] / T[ii] < dial_tones_to_ohers_tones_ )
             return ' ';
     }
 
@@ -440,18 +450,18 @@ char DtmfDetector::DTMF_detection( int16_t short_array_samples[] )
         {
             if( T[ii] != T[Row] )
             {
-                if( T[Row] / T[ii] < dialTonesToOhersDialTones )
+                if( T[Row] / T[ii] < dial_tones_to_ohers_dial_tones_ )
                     return ' ';
                 if( Column != 4 )
                 {
                     // Column == 4 corresponds to 1176Hz.
                     // TODO: what is so special about this frequency?
-                    if( T[Column] / T[ii] < dialTonesToOhersDialTones )
+                    if( T[Column] / T[ii] < dial_tones_to_ohers_dial_tones_ )
                         return ' ';
                 }
                 else
                 {
-                    if( T[Column] / T[ii] < ( dialTonesToOhersDialTones / 3 ) )
+                    if( T[Column] / T[ii] < ( dial_tones_to_ohers_dial_tones_ / 3 ) )
                         return ' ';
                 }
             }
@@ -536,3 +546,5 @@ char DtmfDetector::DTMF_detection( int16_t short_array_samples[] )
 
     return return_value;
 }
+
+} // namespace dtmf

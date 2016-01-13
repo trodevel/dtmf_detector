@@ -14,6 +14,7 @@
 #include <stdint.h>
 
 #include "DtmfDetector.hpp"
+#include "IDtmfDetectorCallback.hpp"    // IDtmfDetectorCallback
 
 //
 // The string ".snd" in big-endian byte ordering.  This identifies the file as
@@ -51,7 +52,7 @@ struct au_header
     uint32_t nchannels;
 };
 
-string au_header_tostr( au_header &h )
+string to_string( au_header &h )
 {
     stringstream ss;
     ss << h.header_size << " header bytes, " << h.nsamples << " samples, encoding type: " << h.encoding << ", " << h.sample_rate << "Hz, "
@@ -59,7 +60,7 @@ string au_header_tostr( au_header &h )
     return ss.str();
 }
 
-class Callback: public IDtmfDetectorCallback
+class Callback: public dtmf::IDtmfDetectorCallback
 {
 public:
 
@@ -110,7 +111,7 @@ int main( int argc, char **argv )
         return 1;
     }
 
-    cout << argv[1] << ": " << au_header_tostr( header ) << endl;
+    cout << argv[1] << ": " << to_string( header ) << endl;
     //
     // This example only supports a specific type of AU format:
     //
@@ -129,7 +130,7 @@ int main( int argc, char **argv )
 
     char cbuf[BUFLEN];
     short sbuf[BUFLEN];
-    DtmfDetector detector( BUFLEN, & callback );
+    dtmf::DtmfDetector detector( BUFLEN, & callback );
     for( uint32_t i = 0; i < header.nsamples; i += BUFLEN )
     {
         fin.read( cbuf, BUFLEN );

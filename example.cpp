@@ -1,14 +1,15 @@
-/** Author:       Plyashkevich Viatcheslav <plyashkevich@yandex.ru> 
+/** Author:       Plyashkevich Viatcheslav <plyashkevich@yandex.ru>
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License 
- * All rights reserved. 
+ * it under the terms of the GNU Lesser General Public License
+ * All rights reserved.
  */
 
 
 #include <stdio.h>
 #include "DtmfDetector.hpp"
 #include "DtmfGenerator.hpp"
+#include "IDtmfDetectorCallback.hpp"    // IDtmfDetectorCallback
 
 #include <iostream>
 
@@ -20,7 +21,7 @@ short int samples[100000];
 DtmfGenerator dtmfGenerator(FRAME_SIZE, 40, 20);
 
 
-class Callback: public IDtmfDetectorCallback
+class Callback: public dtmf::IDtmfDetectorCallback
 {
 public:
 
@@ -47,7 +48,7 @@ private:
 };
 
 int main()
-{ 
+{
 	dialButtons[0] = '1';
 	dialButtons[1] = '2';
 	dialButtons[2] = '3';
@@ -64,15 +65,15 @@ int main()
 	dialButtons[13] = '0';
 	dialButtons[14] = '#';
 	dialButtons[15] = 'D';
-   
+
 	Callback callback;
 
-	DtmfDetector dtmfDetector( FRAME_SIZE, &callback );
+	dtmf::DtmfDetector dtmfDetector( FRAME_SIZE, &callback );
 
 	while(true)
 	{
 		static int framenumber = 0;
-		++framenumber;	
+		++framenumber;
 		dtmfGenerator.dtmfGeneratorReset();
 		callback.zerosIndexDialButton();
 		dtmfGenerator.transmitNewDialButtonsArray(dialButtons, 16);
@@ -87,7 +88,7 @@ int main()
 			printf("Error of a number of detecting buttons \n");
 			continue;
 		}
-		
+
 		/*
 		for(int ii = 0; ii < callback.getIndexDialButtons(); ++ii)
 		{
@@ -100,6 +101,6 @@ int main()
 		*/
 		printf("Success in frame: %d \n", framenumber);
 	}
- 
+
   return 0;
 }

@@ -5,7 +5,7 @@ CPP=g++
 INCLUDES=
 CFLAGS=-Wall -ggdb -std=c++0x
 LDFLAGS=
-EXE=example.out detect-au.out
+EXE=example.out detect-au.out detect-wav.out
 SRC=DtmfDetector.cpp DtmfGenerator.cpp
 OBJ=$(patsubst %.cpp,obj/%.o,$(SRC))
 
@@ -24,17 +24,24 @@ debug: all
 all: dirs $(addprefix bin/, $(EXE))
 
 
+LIB_NAMES = wave
+LIBS = $(patsubst %,bin/lib%.a,$(LIB_NAMES))
+
 dirs:
 	mkdir -p obj
 	mkdir -p bin
 
-bin/%.out: obj/%.o $(OBJ)
-	$(CPP) $(CFLAGS) $< $(OBJ) $(LDFLAGS) -o $@
+bin/%.out: obj/%.o $(OBJ) $(LIB_NAMES)
+	$(CPP) $(CFLAGS) $< $(OBJ) $(LDFLAGS) $(LIBS) -o $@
 
 obj/%.o : %.cpp
 	$(CPP) $(CFLAGS) $< $(INCLUDES) -c -o $@
 
+$(LIB_NAMES):
+	make -C ../$@
+	ln -sf ../../$@/DBG/lib$@.a bin
+
+
 clean:
 	rm -f obj/*
 	rm -f bin/*
-	rm -f tags
