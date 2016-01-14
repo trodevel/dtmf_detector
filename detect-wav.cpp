@@ -1,7 +1,7 @@
 /*
 
 Detect DTMF tones in WAV file.
-The file must be 8KHz, mono.
+The file must be 16KHz or 8KHz, mono.
 
 Copyright (C) 2016 Sergey Kolevatov
 
@@ -20,7 +20,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-// $Revision: 3180 $ $Date:: 2016-01-13 #$ $Author: serge $
+// $Revision: 3190 $ $Date:: 2016-01-14 #$ $Author: serge $
 
 #include <iostream>
 #include <sstream>
@@ -33,7 +33,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 // The size of the buffer we use for reading & processing the audio samples.
 //
-#define BUFLEN 256
+#define BUFLEN 512
 
 std::string to_string( const wave::Wave &h )
 {
@@ -80,10 +80,14 @@ int main( int argc, char **argv )
 
     // This example only supports a specific type of WAV format:
     //
-    // - 8KHz sample rate
+    // - 16KHz or 8KHz sample rate
     // - mono
     //
-    if( header.get_samples_per_sec() != 8000 || header.get_channels() != 1 )
+    if( (
+            header.get_samples_per_sec() != 8000 &&
+            header.get_samples_per_sec() != 16000 &&
+            header.get_samples_per_sec() != 44100 )
+            || header.get_channels() != 1 )
     {
         std::cerr << argv[1] << ": unsupported WAV format" << std::endl;
         return 1;
@@ -93,7 +97,7 @@ int main( int argc, char **argv )
 
     std::vector<char> cbuf(BUFLEN * 2);
     short sbuf[BUFLEN];
-    dtmf::DtmfDetector detector( BUFLEN, & callback );
+    dtmf::DtmfDetector detector( BUFLEN, & callback, header.get_samples_per_sec() );
 
     auto data_size = header.get_data_size();
 

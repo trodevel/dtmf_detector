@@ -1,4 +1,5 @@
 /** Author:       Plyashkevich Viatcheslav <plyashkevich@yandex.ru>
+ *                Sergey Kolevatov
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License
@@ -22,7 +23,10 @@ class DtmfDetector
 public:
 
     // frame_size - input frame size
-    DtmfDetector( int32_t frame_size, IDtmfDetectorCallback * callback );
+    DtmfDetector(
+            int32_t frame_size,
+            IDtmfDetectorCallback * callback,
+            int32_t sampling_rate = 8000 );
     ~DtmfDetector();
 
     void process( int16_t input_frame[] ); // The DTMF detection.
@@ -39,7 +43,9 @@ protected:
     static const unsigned COEFF_NUMBER = 18;
 
     // A fixed-size array to hold the coefficients
-    static const int16_t CONSTANTS[COEFF_NUMBER];
+    static const int16_t CONSTANTS_8KHz[COEFF_NUMBER];
+    static const int16_t CONSTANTS_16KHz[COEFF_NUMBER];
+    static const int16_t CONSTANTS_44_1KHz[COEFF_NUMBER];
 
     // This array keeps the entire buffer PLUS a single batch.
     int16_t *ptr_array_samples_;
@@ -57,7 +63,7 @@ protected:
 
     // The number of samples to utilize in a single call to Goertzel.
     // This is referred to as a frame.
-    static const int32_t SAMPLES;
+    uint32_t SAMPLES;
 
     // This gets used for a variety of purposes.  Most notably, it indicates
     // the start of the circular buffer at the start of ::dtmfDetecting.
@@ -98,6 +104,8 @@ protected:
 private:
 
     IDtmfDetectorCallback * callback_;
+
+    const int16_t           * CONSTANTS;
 };
 
 } // namespace dtmf

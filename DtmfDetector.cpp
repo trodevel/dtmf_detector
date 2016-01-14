@@ -127,7 +127,7 @@ const unsigned DtmfDetector::COEFF_NUMBER;
 //
 // It seems this is done to simplify harmonic detection.
 //
-const int16_t DtmfDetector::CONSTANTS[COEFF_NUMBER] =
+const int16_t DtmfDetector::CONSTANTS_8KHz[COEFF_NUMBER] =
 {
         27860,  // 0: 706Hz, harmonics include: 78Hz, 235Hz, 3592Hz
         26745,  // 1: 784Hz, apparently a high G, harmonics: 78Hz
@@ -181,14 +181,78 @@ const int16_t DtmfDetector::CONSTANTS[COEFF_NUMBER] =
         -22811, // 2980Hz, which is 2*1490Hz
         -30555  // 3529Hz, 3*1176Hz, 5*706Hz
         };
+
+const int16_t DtmfDetector::CONSTANTS_16KHz[COEFF_NUMBER] =
+{
+        31516,
+        31226,
+        30903,
+        30555,
+        29335,
+        28379,
+        27316,
+        26149,
+        29768,
+        32008,
+        32752,
+        32628,
+        32518,
+        32380,
+        22812,
+        18097,
+        12777,
+        6026
+        };
+
+const int16_t DtmfDetector::CONSTANTS_44_1KHz[COEFF_NUMBER] =
+{
+        32601,
+        32563,
+        32520,
+        32473,
+        32308,
+        32178,
+        32031,
+        31869,
+        32367,
+        32667,
+        32765,
+        32749,
+        32734,
+        32716,
+        31394,
+        30694,
+        29858,
+        28712,
+        };
+
 int32_t DtmfDetector::power_threshold_ = 328;
 int32_t DtmfDetector::dial_tones_to_ohers_tones_ = 16;
 int32_t DtmfDetector::dial_tones_to_ohers_dial_tones_ = 6;
-const int32_t DtmfDetector::SAMPLES = 102;
 //--------------------------------------------------------------------
-DtmfDetector::DtmfDetector( int32_t frame_size, IDtmfDetectorCallback * callback ) :
-        frame_size_( frame_size ), callback_( callback )
+DtmfDetector::DtmfDetector(
+        int32_t frame_size,
+        IDtmfDetectorCallback * callback,
+        int32_t sampling_rate ) :
+        frame_size_( frame_size ), callback_( callback ),
+        CONSTANTS( nullptr )
 {
+    if( sampling_rate == 44100 )
+    {
+        CONSTANTS   = CONSTANTS_44_1KHz;
+        SAMPLES     = 512;
+    }
+    else if( sampling_rate == 16000 )
+    {
+        CONSTANTS   = CONSTANTS_16KHz;
+        SAMPLES     = 204;
+    }
+    else
+    {
+        CONSTANTS   = CONSTANTS_8KHz;
+        SAMPLES     = 102;
+    }
+
     //
     // This array is padded to keep the last batch, which is smaller
     // than SAMPLES, from the previous call to dtmfDetecting.
