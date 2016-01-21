@@ -1,47 +1,98 @@
-#
-# http://www.gnu.org/software/make/manual/make.html
-#
-CPP=g++
-INCLUDES=
-CFLAGS=-Wall -ggdb -std=c++0x
-LDFLAGS=
-EXE=example.out detect-au.out detect-wav.out
-SRC=DtmfDetector.cpp DtmfGenerator.cpp
-OBJ=$(patsubst %.cpp,obj/%.o,$(SRC))
+# Makefile for libdtmf_detector
+# Copyright (C) 2016 Sergey Kolevatov
 
-#
-# This is here to prevent Make from deleting secondary files.
-#
-.SECONDARY:
-	
-debug: CFLAGS += -DDEBUG=1
-debug: all
+###################################################################
 
-#
-# $< is the first dependency in the dependency list
-# $@ is the target name
-#
-all: dirs $(addprefix bin/, $(EXE))
+include Makefile.inc
 
+VER := 0
+
+MODE ?= debug
+
+###################################################################
+
+EXT_LIBS=
+
+###################################################################
+
+PROJECT := dtmf_detector
+
+LIBNAME=lib$(PROJECT)
+
+###################################################################
+
+ifeq "$(MODE)" "debug"
+    OBJDIR=./DBG
+    BINDIR=./DBG
+
+    CFLAGS := -Wall -std=c++0x -ggdb -g3
+    LFLAGS := -Wall -lstdc++ -lrt -ldl -lm -g
+    LFLAGS_TEST := -Wall -lstdc++ -lrt -ldl -g -L. $(BINDIR)/$(LIBNAME).a -lm
+
+    TARGET=example
+else
+    OBJDIR=./OPT
+    BINDIR=./OPT
+
+    CFLAGS := -Wall -std=c++0x
+    LFLAGS := -Wall -lstdc++ -lrt -ldl -lm
+    LFLAGS_TEST := -Wall -lstdc++ -lrt -ldl -L. $(BINDIR)/$(LIBNAME).a -lm
+
+    TARGET=example
+endif
+
+###################################################################
+
+#INCL = -I$(BOOST_INC) -I.
+INCL = -I.
+
+
+STATICLIB=$(LIBNAME).a
+
+SRCC = DtmfDetector.cpp
+OBJS = $(patsubst %.cpp,$(OBJDIR)/%.o,$(SRCC))
 
 LIB_NAMES = wave
-LIBS = $(patsubst %,bin/lib%.a,$(LIB_NAMES))
+LIBS = $(patsubst %,$(BINDIR)/lib%.a,$(LIB_NAMES))
 
-dirs:
-	mkdir -p obj
-	mkdir -p bin
+all: static
 
-bin/%.out: obj/%.o $(OBJ) $(LIB_NAMES)
-	$(CPP) $(CFLAGS) $< $(OBJ) $(LDFLAGS) $(LIBS) -o $@
+static: $(TARGET)
 
-obj/%.o : %.cpp
-	$(CPP) $(CFLAGS) $< $(INCLUDES) -c -o $@
+check: test
+
+test: all teststatic
+
+teststatic: static
+	@echo static test is not ready yet, dc10
+
+$(BINDIR)/$(STATICLIB): $(OBJS)
+	$(AR) $@ $(OBJS)
+	-@ ($(RANLIB) $@ || true) >/dev/null 2>&1
+
+$(OBJDIR)/%.o: %.cpp
+	@echo compiling $<
+	$(CC) $(CFLAGS) -DPIC -c -o $@ $< $(INCL)
+
+$(TARGET): $(BINDIR) $(BINDIR)/$(TARGET)
+	ln -sf $(BINDIR)/$(TARGET) $(TARGET)
+	@echo "$@ uptodate - ${MODE}"
+
+$(BINDIR)/$(TARGET): $(OBJDIR)/$(TARGET).o $(OBJS) $(BINDIR)/$(STATICLIB) $(LIB_NAMES)
+	$(CC) $(CFLAGS) -o $@ $(OBJDIR)/$(TARGET).o $(BINDIR)/$(LIBNAME).a $(LIBS) $(EXT_LIBS) $(LFLAGS_TEST)
 
 $(LIB_NAMES):
 	make -C ../$@
-	ln -sf ../../$@/DBG/lib$@.a bin
+	ln -sf ../../$@/$(BINDIR)/lib$@.a $(BINDIR)
 
+$(BINDIR):
+	@ mkdir -p $(OBJDIR)
+	@ mkdir -p $(BINDIR)
 
 clean:
-	rm -f obj/*
-	rm -f bin/*
+	#rm $(OBJDIR)/*.o *~ $(TARGET)
+	rm $(OBJDIR)/*.o $(TARGET) $(BINDIR)/$(TARGET) $(BINDIR)/$(STATICLIB)
+
+cleanall: clean
+
+.PHONY: all $(LIB_NAMES)

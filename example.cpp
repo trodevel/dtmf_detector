@@ -1,25 +1,48 @@
-/** Author:       Plyashkevich Viatcheslav <plyashkevich@yandex.ru>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License
- * All rights reserved.
- */
+/*
 
+Detect DTMF tones in WAV file.
+The file must be 16KHz or 8KHz, mono.
 
-#include <stdio.h>
-#include "DtmfDetector.hpp"
-#include "DtmfGenerator.hpp"
-#include "IDtmfDetectorCallback.hpp"    // IDtmfDetectorCallback
+Copyright (C) 2016 Sergey Kolevatov
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+*/
+
+// $Revision: 3233 $ $Date:: 2016-01-21 #$ $Author: serge $
 
 #include <iostream>
+#include <sstream>
 
-const unsigned FRAME_SIZE = 160;
+#include "../wave/wave.h"       // wave::Wave
 
-char dialButtons[16];
-short int samples[100000];
+#include "DtmfDetector.hpp"
+#include "IDtmfDetectorCallback.hpp"    // IDtmfDetectorCallback
 
-DtmfGenerator dtmfGenerator(FRAME_SIZE, 40, 20);
 
+// The size of the buffer we use for reading & processing the audio samples.
+//
+#define BUFLEN 512
+
+std::string to_string( const wave::Wave &h )
+{
+    std::stringstream ss;
+    ss << h.get_data_size() << " samples, " << h.get_samples_per_sec() << "Hz, "
+            << h.get_channels() << " channels, " << h.get_avg_bytes_per_sec() <<
+            " avg bytes per sec";
+    return ss.str();
+}
 
 class Callback: public dtmf::IDtmfDetectorCallback
 {
@@ -28,79 +51,74 @@ public:
     virtual void on_detect( const char button )
     {
         std::cout << "detected '" << button << "'" << std::endl;
-
-        counter_++;
     }
-
-    void zerosIndexDialButton()
-    {
-        counter_ = 0;
-    }
-
-    unsigned getIndexDialButtons() const
-    {
-        return counter_;
-    }
-
-private:
-
-    unsigned counter_ = 0;
 };
 
-int main()
+int main( int argc, char **argv )
 {
-	dialButtons[0] = '1';
-	dialButtons[1] = '2';
-	dialButtons[2] = '3';
-	dialButtons[3] = 'A';
-	dialButtons[4] = '4';
-	dialButtons[5] = '5';
-	dialButtons[6] = '6';
-	dialButtons[7] = 'B';
-	dialButtons[8] = '7';
-	dialButtons[9] = '8';
-	dialButtons[10] = '9';
-	dialButtons[11] = 'C';
-	dialButtons[12] = '*';
-	dialButtons[13] = '0';
-	dialButtons[14] = '#';
-	dialButtons[15] = 'D';
+    if( argc != 2 )
+    {
+        std::cerr << "usage: " << argv[0] << " filename.wav" << std::endl;
+        return 1;
+    }
 
-	Callback callback;
+    wave::Wave header;
 
-	dtmf::DtmfDetector dtmfDetector( FRAME_SIZE, &callback );
+    try
+    {
+        wave::Wave v( argv[1] );
 
-	while(true)
-	{
-		static int framenumber = 0;
-		++framenumber;
-		dtmfGenerator.dtmfGeneratorReset();
-		callback.zerosIndexDialButton();
-		dtmfGenerator.transmitNewDialButtonsArray(dialButtons, 16);
-		while(!dtmfGenerator.getReadyFlag())
-		{
-			dtmfGenerator.dtmfGenerating(samples); // Generating of a 16 bit's little-endian's pcm samples array
-			dtmfDetector.process(samples); // Detecting from 16 bit's little-endian's pcm samples array
-		}
+        header = v;
+    }
+    catch( std::exception & e)
+    {
+        std::cerr << argv[1] << ": unable to open file" << std::endl;
+        return 1;
+    }
 
-		if(callback.getIndexDialButtons() != 16)
-		{
-			printf("Error of a number of detecting buttons \n");
-			continue;
-		}
+    std::cout << argv[1] << ": " << to_string( header ) << std::endl;
 
-		/*
-		for(int ii = 0; ii < callback.getIndexDialButtons(); ++ii)
-		{
-			if(dtmfDetector.getDialButtonsArray()[ii] != dialButtons[ii])
-			{
-				printf("Error of a detecting button \n");
-				continue;
-			}
-		}
-		*/
-		printf("Success in frame: %d \n", framenumber);
-	}
+    // This example only supports a specific type of WAV format:
+    //
+    // - 16KHz or 8KHz sample rate
+    // - mono
+    //
+    if( (
+            header.get_samples_per_sec() != 8000 &&
+            header.get_samples_per_sec() != 16000 &&
+            header.get_samples_per_sec() != 44100 )
+            || header.get_channels() != 1 )
+    {
+        std::cerr << argv[1] << ": unsupported WAV format" << std::endl;
+        return 1;
+    }
 
-  return 0;
+    Callback callback;
+
+    std::vector<char> cbuf(BUFLEN * 2);
+    std::vector<short> sbuf( BUFLEN );
+    dtmf::DtmfDetector detector( BUFLEN, header.get_samples_per_sec() );
+
+    detector.init_callback( & callback );
+
+    auto data_size = header.get_data_size();
+
+    for( auto i = 0; i < data_size; i += BUFLEN*2 )
+    {
+        cbuf.clear();
+
+        header.get_samples( i, BUFLEN * 2, cbuf );
+
+        // copy char data into short array
+        for( int j = 0; j < BUFLEN; ++j )
+        {
+            sbuf[j] = (short)cbuf[j * 2 ] + ( (short)cbuf[j * 2 + 1] << 8 );
+        }
+
+        detector.process( &sbuf[0] );
+    }
+
+    std::cout << std::endl;
+
+    return 0;
 }

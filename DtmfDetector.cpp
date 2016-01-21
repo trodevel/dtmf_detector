@@ -232,9 +232,8 @@ int32_t DtmfDetector::dial_tones_to_ohers_dial_tones_ = 6;
 //--------------------------------------------------------------------
 DtmfDetector::DtmfDetector(
         int32_t frame_size,
-        IDtmfDetectorCallback * callback,
         int32_t sampling_rate ) :
-        frame_size_( frame_size ), callback_( callback ),
+        frame_size_( frame_size ), callback_( nullptr ),
         CONSTANTS( nullptr )
 {
     if( sampling_rate == 44100 )
@@ -269,6 +268,13 @@ DtmfDetector::~DtmfDetector()
     delete[] ptr_array_samples_;
     delete[] internal_array_;
 }
+
+void DtmfDetector::init_callback(
+        IDtmfDetectorCallback * callback )
+{
+    callback_   = callback;
+}
+
 
 void DtmfDetector::process( int16_t input_array[] )
 {

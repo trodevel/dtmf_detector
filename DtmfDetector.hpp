@@ -25,9 +25,10 @@ public:
     // frame_size - input frame size
     DtmfDetector(
             int32_t frame_size,
-            IDtmfDetectorCallback * callback,
             int32_t sampling_rate = 8000 );
     ~DtmfDetector();
+
+    void init_callback( IDtmfDetectorCallback * callback );
 
     void process( int16_t input_frame[] ); // The DTMF detection.
     // The size of a input_frame must be equal of a frame_size, who
