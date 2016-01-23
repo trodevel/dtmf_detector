@@ -20,7 +20,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-// $Revision: 3233 $ $Date:: 2016-01-21 #$ $Author: serge $
+// $Revision: 3242 $ $Date:: 2016-01-22 #$ $Author: serge $
 
 #include <iostream>
 #include <sstream>
@@ -48,9 +48,9 @@ class Callback: public dtmf::IDtmfDetectorCallback
 {
 public:
 
-    virtual void on_detect( const char button )
+    virtual void on_detect( dtmf::tone_e button )
     {
-        std::cout << "detected '" << button << "'" << std::endl;
+        std::cout << "detected '" << static_cast<uint32_t>( button ) << "'" << std::endl;
     }
 };
 

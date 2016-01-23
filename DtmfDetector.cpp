@@ -1,4 +1,5 @@
 /** Author:       Plyashkevich Viatcheslav <plyashkevich@yandex.ru>
+ *                Sergey Kolevatov
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License
@@ -254,12 +255,12 @@ DtmfDetector::DtmfDetector(
 
     //
     // This array is padded to keep the last batch, which is smaller
-    // than SAMPLES, from the previous call to dtmfDetecting.
+    // than SAMPLES, from the previous call to detect_dtmf.
     //
     ptr_array_samples_  = new int16_t[frame_size_ + SAMPLES];
     internal_array_     = new int16_t[SAMPLES];
     frame_count_        = 0;
-    prev_dial_button_   = ' ';
+    prev_dial_button_   = tone_e::UNDEF;
     permission_flag_    = 0;
 }
 //---------------------------------------------------------------------
@@ -281,7 +282,7 @@ void DtmfDetector::process( int16_t input_array[] )
     // ii                   Variable for iteration
     // temp_dial_button     A tone detected in part of the input_array
     uint32_t ii;
-    char temp_dial_button;
+    tone_e temp_dial_button;
 
     // Copy the input array into the middle of pArraySamples.
     // I think the first frameCount samples contain the last batch from the
@@ -318,7 +319,7 @@ void DtmfDetector::process( int16_t input_array[] )
             // TONE_A will be ignored.
             if( permission_flag_ )
             {
-                if( temp_dial_button != ' ' )
+                if( temp_dial_button != tone_e::UNDEF )
                 {
                     if( callback_ )
                         callback_->on_detect( temp_dial_button );
@@ -328,7 +329,7 @@ void DtmfDetector::process( int16_t input_array[] )
 
             // If we've gone from silence to a tone, set the flag.
             // The tone will be registered in the next iteration.
-            if( ( temp_dial_button != ' ' ) && ( prev_dial_button_ == ' ' ) )
+            if( ( temp_dial_button != tone_e::UNDEF ) && ( prev_dial_button_ == tone_e::UNDEF ) )
             {
                 permission_flag_ = 1;
             }
@@ -357,11 +358,93 @@ void DtmfDetector::process( int16_t input_array[] )
 
 }
 //-----------------------------------------------------------------
+tone_e DtmfDetector::row_column_to_tone( int32_t row, int32_t column )
+{
+    tone_e return_value = tone_e::UNDEF;
+
+    //We are choosed a push button
+    // Determine the tone based on the row and column frequencies.
+    switch( row )
+    {
+    case 0:
+        switch( column )
+        {
+        case 4:
+            return_value = tone_e::TONE_1;
+            break;
+        case 5:
+            return_value = tone_e::TONE_2;
+            break;
+        case 6:
+            return_value = tone_e::TONE_3;
+            break;
+        case 7:
+            return_value = tone_e::TONE_A;
+            break;
+        }
+        ;
+        break;
+    case 1:
+        switch( column )
+        {
+        case 4:
+            return_value = tone_e::TONE_4;
+            break;
+        case 5:
+            return_value = tone_e::TONE_5;
+            break;
+        case 6:
+            return_value = tone_e::TONE_6;
+            break;
+        case 7:
+            return_value = tone_e::TONE_B;
+            break;
+        }
+        ;
+        break;
+    case 2:
+        switch( column )
+        {
+        case 4:
+            return_value = tone_e::TONE_7;
+            break;
+        case 5:
+            return_value = tone_e::TONE_8;
+            break;
+        case 6:
+            return_value = tone_e::TONE_9;
+            break;
+        case 7:
+            return_value = tone_e::TONE_C;
+            break;
+        }
+        ;
+        break;
+    case 3:
+        switch( column )
+        {
+        case 4:
+            return_value = tone_e::TONE_STAR;
+            break;
+        case 5:
+            return_value = tone_e::TONE_0;
+            break;
+        case 6:
+            return_value = tone_e::TONE_HASH;
+            break;
+        case 7:
+            return_value = tone_e::TONE_D;
+            break;
+        }
+    }
+
+    return return_value;
+}
+//-----------------------------------------------------------------
 // Detect a tone in a single batch of samples (SAMPLES elements).
-char DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
+tone_e DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
 {
     int32_t Dial = 32;
-    char return_value = ' ';
     unsigned ii;
     int32_t Sum = 0;
 
@@ -380,7 +463,7 @@ char DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
     }
     Sum /= SAMPLES;
     if( Sum < power_threshold_ )
-        return ' ';
+        return tone_e::UNDEF;
 
     //Normalization
     // Iterate over each sample.
@@ -399,7 +482,7 @@ char DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
 
     Dial -= 16;
 
-    // Next, utilize Dial for scaling and populate internalArray.
+    // Next, utilize Dial for scaling and populate internal_array_.
     for( ii = 0; ii < SAMPLES; ii++ )
     {
         T[0] = short_array_samples[ii];
@@ -471,9 +554,9 @@ char DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
     // This means the tones are too quiet compared to the other, non-max
     // DTMF frequencies.
     if( T[Row] / Sum < dial_tones_to_ohers_dial_tones_ )
-        return ' ';
+        return tone_e::UNDEF;
     if( T[Column] / Sum < dial_tones_to_ohers_dial_tones_ )
-        return ' ';
+        return tone_e::UNDEF;
 
     // Next, check if the volume of the row and column frequencies
     // is similar.  If they are different, then they aren't part of
@@ -482,12 +565,12 @@ char DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
     // In the literature, this is known as "twist".
     //If relations max colum to max row is large then 4 then return
     if( T[Row] < ( T[Column] >> 2 ) )
-        return ' ';
+        return tone_e::UNDEF;
     //If relations max colum to max row is large then 4 then return
     // The reason why the twist calculations aren't symmetric is that the
     // allowed ratios for normal and reverse twist are different.
     if( T[Column] < ( ( T[Row] >> 1 ) - ( T[Row] >> 3 ) ) )
-        return ' ';
+        return tone_e::UNDEF;
 
     // N.B. looks like avoiding a divide by zero.
     for( ii = 0; ii < COEFF_NUMBER; ii++ )
@@ -500,9 +583,9 @@ char DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
     for( ii = 10; ii < COEFF_NUMBER; ii++ )
     {
         if( T[Row] / T[ii] < dial_tones_to_ohers_tones_ )
-            return ' ';
+            return tone_e::UNDEF;
         if( T[Column] / T[ii] < dial_tones_to_ohers_tones_ )
-            return ' ';
+            return tone_e::UNDEF;
     }
 
     //If relations max row and max column tones to other dial tones are
@@ -521,98 +604,24 @@ char DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
             if( T[ii] != T[Row] )
             {
                 if( T[Row] / T[ii] < dial_tones_to_ohers_dial_tones_ )
-                    return ' ';
+                    return tone_e::UNDEF;
                 if( Column != 4 )
                 {
                     // Column == 4 corresponds to 1176Hz.
                     // TODO: what is so special about this frequency?
                     if( T[Column] / T[ii] < dial_tones_to_ohers_dial_tones_ )
-                        return ' ';
+                        return tone_e::UNDEF;
                 }
                 else
                 {
                     if( T[Column] / T[ii] < ( dial_tones_to_ohers_dial_tones_ / 3 ) )
-                        return ' ';
+                        return tone_e::UNDEF;
                 }
             }
         }
     }
 
-    //We are choosed a push button
-    // Determine the tone based on the row and column frequencies.
-    switch( Row )
-    {
-    case 0:
-        switch( Column )
-        {
-        case 4:
-            return_value = '1';
-            break;
-        case 5:
-            return_value = '2';
-            break;
-        case 6:
-            return_value = '3';
-            break;
-        case 7:
-            return_value = 'A';
-            break;
-        }
-        ;
-        break;
-    case 1:
-        switch( Column )
-        {
-        case 4:
-            return_value = '4';
-            break;
-        case 5:
-            return_value = '5';
-            break;
-        case 6:
-            return_value = '6';
-            break;
-        case 7:
-            return_value = 'B';
-            break;
-        }
-        ;
-        break;
-    case 2:
-        switch( Column )
-        {
-        case 4:
-            return_value = '7';
-            break;
-        case 5:
-            return_value = '8';
-            break;
-        case 6:
-            return_value = '9';
-            break;
-        case 7:
-            return_value = 'C';
-            break;
-        }
-        ;
-        break;
-    case 3:
-        switch( Column )
-        {
-        case 4:
-            return_value = '*';
-            break;
-        case 5:
-            return_value = '0';
-            break;
-        case 6:
-            return_value = '#';
-            break;
-        case 7:
-            return_value = 'D';
-            break;
-        }
-    }
+    tone_e return_value = row_column_to_tone( Row, Column );
 
     return return_value;
 }

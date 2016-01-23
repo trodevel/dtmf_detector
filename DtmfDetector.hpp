@@ -11,6 +11,8 @@
 
 #include <cstdint>      // uint32_t
 
+#include "IDtmfDetectorCallback.hpp"    // tone_e
+
 namespace dtmf
 {
 
@@ -37,7 +39,9 @@ public:
 protected:
 
     // This protected function determines the tone present in a single frame.
-    char detect_dtmf( int16_t short_array_samples[] );
+    tone_e detect_dtmf( int16_t short_array_samples[] );
+
+    tone_e row_column_to_tone( int32_t row, int32_t column );
 
 protected:
     // These coefficients include the 8 DTMF frequencies plus 10 harmonics.
@@ -67,11 +71,11 @@ protected:
     uint32_t SAMPLES;
 
     // This gets used for a variety of purposes.  Most notably, it indicates
-    // the start of the circular buffer at the start of ::dtmfDetecting.
+    // the start of the circular buffer at the start of ::detect_dtmf.
     int32_t frame_count_;
 
     // The tone detected by the previous call to DTMF_detection.
-    char prev_dial_button_;
+    tone_e prev_dial_button_;
 
     // This flag is used to aggregate adjacent tones and spaces, i.e.
     //
@@ -82,7 +86,7 @@ protected:
     // 0 means otherwise.
     //
     // While this is a member variable, it can by all means be a local
-    // variable in dtmfDetecting.
+    // variable in detect_dtmf.
     //
     // N.B. seems to not work.  In practice, you get this:
     //
@@ -92,8 +96,8 @@ protected:
     // Used for quickly determining silence within a batch.
     static int32_t power_threshold_;
     //
-    // dialTonesToOhersTone is the higher ratio.
-    // dialTonesToOhersDialTones is the lower ratio.
+    // dial_tones_to_ohers_tones_ is the higher ratio.
+    // dial_tones_to_ohers_dial_tones_ is the lower ratio.
     //
     // It seems like the aim of this implementation is to be more tolerant
     // towards strong "dial tones" than "tones".  The latter include
@@ -104,7 +108,7 @@ protected:
 
 private:
 
-    IDtmfDetectorCallback * callback_;
+    IDtmfDetectorCallback   * callback_;
 
     const int16_t           * CONSTANTS;
 };
