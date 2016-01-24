@@ -10,6 +10,7 @@
 #define DTMF_DETECTOR
 
 #include <cstdint>      // uint32_t
+#include <vector>       // std::vector
 
 #include "IDtmfDetectorCallback.hpp"    // tone_e
 
@@ -26,20 +27,27 @@ public:
 
     // frame_size - input frame size
     DtmfDetector(
-            int32_t frame_size,
             int32_t sampling_rate = 8000 );
     ~DtmfDetector();
 
     void init_callback( IDtmfDetectorCallback * callback );
 
-    void process( int16_t input_frame[] ); // The DTMF detection.
-    // The size of a input_frame must be equal of a frame_size, who
-    // was set in constructor.
+    // The DTMF detection.
+    // Size of a frame is measured in int16_t(word)
+    void process( const int16_t * input_frame, uint32_t frame_size );
 
 protected:
 
+    enum class tone_type_e
+    {
+        UNDEF,
+        SILENCE,
+        TONE,
+    };
+
+
     // This protected function determines the tone present in a single frame.
-    tone_e detect_dtmf( int16_t short_array_samples[] );
+    tone_type_e detect_dtmf( int16_t short_array_samples[], tone_e & tone );
 
     tone_e row_column_to_tone( int32_t row, int32_t column );
 
@@ -53,7 +61,7 @@ protected:
     static const int16_t CONSTANTS_44_1KHz[COEFF_NUMBER];
 
     // This array keeps the entire buffer PLUS a single batch.
-    int16_t *ptr_array_samples_;
+    std::vector<int16_t> array_samples_;
 
     // The magnitude of each coefficient in the current frame.  Populated
     // by goertzel_filter
@@ -62,36 +70,13 @@ protected:
     // An array of size SAMPLES.  Used as input to the Goertzel function.
     int16_t *internal_array_;
 
-    // The size of the entire buffer used for processing samples.
-    // Specified at construction time.
-    const int32_t frame_size_; //Size of a frame is measured in int16_t(word)
-
     // The number of samples to utilize in a single call to Goertzel.
     // This is referred to as a frame.
     uint32_t SAMPLES;
 
-    // This gets used for a variety of purposes.  Most notably, it indicates
-    // the start of the circular buffer at the start of ::detect_dtmf.
-    int32_t frame_count_;
-
     // The tone detected by the previous call to DTMF_detection.
-    tone_e prev_dial_button_;
-
-    // This flag is used to aggregate adjacent tones and spaces, i.e.
-    //
-    // 111111   222222 -> 12 (where a space represents silence)
-    //
-    // 1 means that during the previous iteration, we entered a tone
-    // (gone from silence to non-silence).
-    // 0 means otherwise.
-    //
-    // While this is a member variable, it can by all means be a local
-    // variable in detect_dtmf.
-    //
-    // N.B. seems to not work.  In practice, you get this:
-    //
-    // 111111   222222 -> 1111122222
-    char permission_flag_;
+    tone_e      prev_dial_button_;
+    tone_type_e prev_tone_type_;
 
     // Used for quickly determining silence within a batch.
     static int32_t power_threshold_;

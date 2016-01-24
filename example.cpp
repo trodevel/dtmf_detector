@@ -20,7 +20,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-// $Revision: 3242 $ $Date:: 2016-01-22 #$ $Author: serge $
+// $Revision: 3265 $ $Date:: 2016-01-24 #$ $Author: serge $
 
 #include <iostream>
 #include <sstream>
@@ -97,7 +97,7 @@ int main( int argc, char **argv )
 
     std::vector<char> cbuf(BUFLEN * 2);
     std::vector<short> sbuf( BUFLEN );
-    dtmf::DtmfDetector detector( BUFLEN, header.get_samples_per_sec() );
+    dtmf::DtmfDetector detector( header.get_samples_per_sec() );
 
     detector.init_callback( & callback );
 
@@ -115,7 +115,7 @@ int main( int argc, char **argv )
             sbuf[j] = (short)cbuf[j * 2 ] + ( (short)cbuf[j * 2 + 1] << 8 );
         }
 
-        detector.process( &sbuf[0] );
+        detector.process( &sbuf[0], sbuf.size() );
     }
 
     std::cout << std::endl;

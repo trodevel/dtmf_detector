@@ -7,6 +7,7 @@
  */
 
 #include <cassert>
+#include <stdexcept>                    // std::invalid_argument
 #include "DtmfDetector.hpp"
 
 #include "IDtmfDetectorCallback.hpp"    // IDtmfDetectorCallback
@@ -232,9 +233,8 @@ int32_t DtmfDetector::dial_tones_to_ohers_tones_ = 16;
 int32_t DtmfDetector::dial_tones_to_ohers_dial_tones_ = 6;
 //--------------------------------------------------------------------
 DtmfDetector::DtmfDetector(
-        int32_t frame_size,
         int32_t sampling_rate ) :
-        frame_size_( frame_size ), callback_( nullptr ),
+        callback_( nullptr ),
         CONSTANTS( nullptr )
 {
     if( sampling_rate == 44100 )
@@ -247,26 +247,27 @@ DtmfDetector::DtmfDetector(
         CONSTANTS   = CONSTANTS_16KHz;
         SAMPLES     = 204;
     }
-    else
+    else if( sampling_rate == 8000 )
     {
         CONSTANTS   = CONSTANTS_8KHz;
         SAMPLES     = 102;
+    }
+    else
+    {
+        throw std::invalid_argument( "unsupported sampling rate" );
     }
 
     //
     // This array is padded to keep the last batch, which is smaller
     // than SAMPLES, from the previous call to detect_dtmf.
     //
-    ptr_array_samples_  = new int16_t[frame_size_ + SAMPLES];
     internal_array_     = new int16_t[SAMPLES];
-    frame_count_        = 0;
-    prev_dial_button_   = tone_e::UNDEF;
-    permission_flag_    = 0;
+    prev_dial_button_   = tone_e::TONE_0;
+    prev_tone_type_     = tone_type_e::SILENCE;
 }
 //---------------------------------------------------------------------
 DtmfDetector::~DtmfDetector()
 {
-    delete[] ptr_array_samples_;
     delete[] internal_array_;
 }
 
@@ -277,90 +278,102 @@ void DtmfDetector::init_callback(
 }
 
 
-void DtmfDetector::process( int16_t input_array[] )
+void DtmfDetector::process( const int16_t * input_array, uint32_t frame_size )
 {
-    // ii                   Variable for iteration
-    // temp_dial_button     A tone detected in part of the input_array
-    uint32_t ii;
-    tone_e temp_dial_button;
-
-    // Copy the input array into the middle of pArraySamples.
-    // I think the first frameCount samples contain the last batch from the
+    // Copy the input array into the middle of array_samples_.
+    // I think the first frame_count samples contain the last batch from the
     // previous call to this function.
-    for( ii = 0; ii < frame_size_; ii++ )
-    {
-        ptr_array_samples_[ii + frame_count_] = input_array[ii];
-    }
 
-    frame_count_ += frame_size_;
-    // Read index into pArraySamples that corresponds to the current batch.
+    array_samples_.insert( array_samples_.end(), & input_array[0], & input_array[frame_size] );
+
+    // This gets used for a variety of purposes.  Most notably, it indicates
+    // the start of the circular buffer at the start of ::detect_dtmf.
+
+    uint32_t frame_count = array_samples_.size();
+
+    // Read index into array_samples_ that corresponds to the current batch.
     uint32_t temp_index = 0;
+
     // If don't have enough samples to process an entire batch, then don't
     // do anything.
-    if( frame_count_ >= SAMPLES )
+    if( frame_count >= SAMPLES )
     {
         // Process samples while we still have enough for an entire
         // batch.
-        while( frame_count_ >= SAMPLES )
+        while( frame_count >= SAMPLES )
         {
             // Determine the tone present in the current batch
-            temp_dial_button = detect_dtmf( &ptr_array_samples_[temp_index] );
+
+            // temp_dial_button     A tone detected in part of the input_array
+            tone_e dial_button;
+            tone_type_e type = detect_dtmf( &array_samples_[temp_index], dial_button );
 
             // Determine if we should register it as a new tone, or
             // ignore it as a continuation of a previously
             // registered tone.
-            //
-            // This seems buggy.  Consider a sequence of three
-            // tones, with each tone corresponding to the dominant
-            // tone in a batch of SAMPLES samples:
-            //
-            // SILENCE TONE_A TONE_B will get registered as TONE_B
-            //
-            // TONE_A will be ignored.
-            if( permission_flag_ )
+            if( ( type == tone_type_e::UNDEF ) && ( prev_tone_type_ == tone_type_e::SILENCE ) )
             {
-                if( temp_dial_button != tone_e::UNDEF )
-                {
-                    if( callback_ )
-                        callback_->on_detect( temp_dial_button );
-                }
-                permission_flag_ = 0;
+                // got something undefined, ignoring
             }
-
-            // If we've gone from silence to a tone, set the flag.
-            // The tone will be registered in the next iteration.
-            if( ( temp_dial_button != tone_e::UNDEF ) && ( prev_dial_button_ == tone_e::UNDEF ) )
+            else if( ( type == tone_type_e::TONE ) && ( prev_tone_type_ == tone_type_e::SILENCE ) )
             {
-                permission_flag_ = 1;
+                // got a tone after silence, report it and update state
+                if( callback_ )
+                    callback_->on_detect( dial_button );
+
+                prev_dial_button_   = dial_button;
+                prev_tone_type_     = type;
+            }
+            else if( ( type == tone_type_e::TONE ) && ( prev_tone_type_ == tone_type_e::TONE ) )
+            {
+                // got a tone after tone, nothing to do
+                if( prev_dial_button_ != dial_button )
+                {
+                    puts( "c" );
+                    if( callback_ )
+                        callback_->on_detect( dial_button );
+
+                    prev_dial_button_   = dial_button;
+
+                }
+            }
+            else if( ( type == tone_type_e::UNDEF ) && ( prev_tone_type_ == tone_type_e::TONE ) )
+            {
+                // got something undefined after tone, ignore it
+                puts( "u" );
+            }
+            else if( ( type == tone_type_e::SILENCE ) && ( prev_tone_type_ != tone_type_e::SILENCE ) )
+            {
+                // got silence after non-silence, update state
+                puts( "s" );
+                prev_tone_type_ = type;
             }
 
             // Store the current tone.  In light of the above
             // behaviour, all that really matters is whether it was
             // a tone or silence.  Finally, move on to the next
             // batch.
-            prev_dial_button_ = temp_dial_button;
+            //prev_tone_type_ = type;
 
             temp_index += SAMPLES;
-            frame_count_ -= SAMPLES;
+            frame_count -= SAMPLES;
         }
 
         //
-        // We have frameCount samples left to process, but it's not
+        // We have frame_count samples left to process, but it's not
         // enough for an entire batch.  Shift these left-over
         // samples to the beginning of our array and deal with them
         // next time this function is called.
         //
-        for( ii = 0; ii < frame_count_; ii++ )
-        {
-            ptr_array_samples_[ii] = ptr_array_samples_[ii + temp_index];
-        }
+        // move unprocessed elements to the beginning
+        array_samples_.erase( array_samples_.begin(), array_samples_.begin() + temp_index );
     }
 
 }
 //-----------------------------------------------------------------
 tone_e DtmfDetector::row_column_to_tone( int32_t row, int32_t column )
 {
-    tone_e return_value = tone_e::UNDEF;
+    tone_e return_value = tone_e::TONE_A;
 
     //We are choosed a push button
     // Determine the tone based on the row and column frequencies.
@@ -442,7 +455,7 @@ tone_e DtmfDetector::row_column_to_tone( int32_t row, int32_t column )
 }
 //-----------------------------------------------------------------
 // Detect a tone in a single batch of samples (SAMPLES elements).
-tone_e DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
+DtmfDetector::tone_type_e DtmfDetector::detect_dtmf( int16_t short_array_samples[], tone_e & tone )
 {
     int32_t Dial = 32;
     unsigned ii;
@@ -463,7 +476,7 @@ tone_e DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
     }
     Sum /= SAMPLES;
     if( Sum < power_threshold_ )
-        return tone_e::UNDEF;
+        return tone_type_e::SILENCE;
 
     //Normalization
     // Iterate over each sample.
@@ -554,9 +567,9 @@ tone_e DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
     // This means the tones are too quiet compared to the other, non-max
     // DTMF frequencies.
     if( T[Row] / Sum < dial_tones_to_ohers_dial_tones_ )
-        return tone_e::UNDEF;
+        return tone_type_e::UNDEF;
     if( T[Column] / Sum < dial_tones_to_ohers_dial_tones_ )
-        return tone_e::UNDEF;
+        return tone_type_e::UNDEF;
 
     // Next, check if the volume of the row and column frequencies
     // is similar.  If they are different, then they aren't part of
@@ -565,12 +578,12 @@ tone_e DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
     // In the literature, this is known as "twist".
     //If relations max colum to max row is large then 4 then return
     if( T[Row] < ( T[Column] >> 2 ) )
-        return tone_e::UNDEF;
+        return tone_type_e::UNDEF;
     //If relations max colum to max row is large then 4 then return
     // The reason why the twist calculations aren't symmetric is that the
     // allowed ratios for normal and reverse twist are different.
     if( T[Column] < ( ( T[Row] >> 1 ) - ( T[Row] >> 3 ) ) )
-        return tone_e::UNDEF;
+        return tone_type_e::UNDEF;
 
     // N.B. looks like avoiding a divide by zero.
     for( ii = 0; ii < COEFF_NUMBER; ii++ )
@@ -583,9 +596,9 @@ tone_e DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
     for( ii = 10; ii < COEFF_NUMBER; ii++ )
     {
         if( T[Row] / T[ii] < dial_tones_to_ohers_tones_ )
-            return tone_e::UNDEF;
+            return tone_type_e::UNDEF;
         if( T[Column] / T[ii] < dial_tones_to_ohers_tones_ )
-            return tone_e::UNDEF;
+            return tone_type_e::UNDEF;
     }
 
     //If relations max row and max column tones to other dial tones are
@@ -604,26 +617,26 @@ tone_e DtmfDetector::detect_dtmf( int16_t short_array_samples[] )
             if( T[ii] != T[Row] )
             {
                 if( T[Row] / T[ii] < dial_tones_to_ohers_dial_tones_ )
-                    return tone_e::UNDEF;
+                    return tone_type_e::UNDEF;
                 if( Column != 4 )
                 {
                     // Column == 4 corresponds to 1176Hz.
                     // TODO: what is so special about this frequency?
                     if( T[Column] / T[ii] < dial_tones_to_ohers_dial_tones_ )
-                        return tone_e::UNDEF;
+                        return tone_type_e::UNDEF;
                 }
                 else
                 {
                     if( T[Column] / T[ii] < ( dial_tones_to_ohers_dial_tones_ / 3 ) )
-                        return tone_e::UNDEF;
+                        return tone_type_e::UNDEF;
                 }
             }
         }
     }
 
-    tone_e return_value = row_column_to_tone( Row, Column );
+    tone = row_column_to_tone( Row, Column );
 
-    return return_value;
+    return tone_type_e::TONE;
 }
 
 } // namespace dtmf

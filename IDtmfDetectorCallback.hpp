@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-// $Revision: 3241 $ $Date:: 2016-01-22 #$ $Author: serge $
+// $Revision: 3268 $ $Date:: 2016-01-24 #$ $Author: serge $
 
 #ifndef DTMF_DETECTOR_CALLBACK
 #define DTMF_DETECTOR_CALLBACK
@@ -29,7 +29,6 @@ namespace dtmf
 
 enum class tone_e
 {
-    UNDEF = -1,
     TONE_0 = 0,
     TONE_1,
     TONE_2,
