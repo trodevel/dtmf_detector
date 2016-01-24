@@ -52,8 +52,8 @@ protected:
     tone_e row_column_to_tone( int32_t row, int32_t column );
 
 protected:
-    // These coefficients include the 8 DTMF frequencies plus 10 harmonics.
-    static const unsigned COEFF_NUMBER = 18;
+    // These coefficients include the 8 DTMF frequencies plus 8 harmonics.
+    static const unsigned COEFF_NUMBER = 16;
 
     // A fixed-size array to hold the coefficients
     static const int16_t CONSTANTS_8KHz[COEFF_NUMBER];

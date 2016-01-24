@@ -11,7 +11,7 @@ Extended by Sergey Kolevatov.
 Main features:
 
 - Portable fixed-point implementation
-- Detection of DTMF tones from 8KHz PCM8 signal
+- Detection of DTMF tones from 8KHz and 16KHz PCM signal
 
 Installation
 ------------
@@ -19,4 +19,4 @@ Installation
     git clone https://github.com/trodevel/dtmf_detector.git
     cd dtmf_detector
     make
-    bin/detect-au.out test-data/Dtmf0.au
+    ./example test-data/Dtmf0.wav

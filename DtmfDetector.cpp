@@ -131,102 +131,63 @@ const unsigned DtmfDetector::COEFF_NUMBER;
 //
 const int16_t DtmfDetector::CONSTANTS_8KHz[COEFF_NUMBER] =
 {
-        27860,  // 0: 706Hz, harmonics include: 78Hz, 235Hz, 3592Hz
-        26745,  // 1: 784Hz, apparently a high G, harmonics: 78Hz
-        25529,  // 2: 863Hz, harmonics: 78Hz
-        24216,  // 3: 941Hz, harmonics: 78Hz, 235Hz, 314Hz
-        19747,  // 4: 1176Hz, harmonics: 78Hz, 235Hz, 392Hz, 3529Hz
-        16384,  // 5: 1333Hz, harmonics: 78Hz
-        12773,  // 6: 1490Hz, harmonics: 78Hz, 2980Hz
-        8967,   // 7: 1547Hz, harmonics: 314Hz, 392Hz
-                // The next coefficients correspond to frequencies of harmonics of the
-                // near-DTMF frequencies above, as well as of other frequencies listed
-                // below.
-        21319,  // 1098Hz
-        29769,  // 549Hz
-                // 549Hz is:
-                // - half of 1098Hz (see above)
-                // - 1/3 of 1633Hz, a real DTMF frequency (see DtmfGenerator)
-        32706,  // 78Hz, a very low D# on a piano
-                // 78Hz is a very convenient frequency, since its (approximately):
-                // - 1/3 of 235Hz (not a DTMF frequency, but we do detect it, see below)
-                // - 1/4 of 314Hz (not a DTMF frequency, but we do detect it, see below)
-                // - 1/5 of 392Hz (not a DTMF frequency, but we do detect it, see below)
-                // - 1/7 of 549Hz
-                // - 1/9 of 706Hz
-                // - 1/10 of 784Hz
-                // - 1/11 of 863Hz
-                // - 1/12 of 941Hz
-                // - 1/14 of 1098Hz (not a DTMF frequency, but we do detect it, see above)
-                // - 1/15 of 1176Hz
-                // - 1/17 of 1333Hz
-                // - 1/19 of 1490Hz
-        32210,  // 235Hz
-                // 235Hz is:
-                // - 1/3 of 706Hz
-                // - 1/4 of 941Hz
-                // - 1/5 of 1176Hz
-                // - 1/15 of 3529Hz (not a DTMF frequency, but we do detect it, see below)
-        31778,  // 314Hz
-                // 314Hz is:
-                // - 1/3 of 941Hz
-                // - 1/5 of 1547Hz
-                // - 1/8 of 2510Hz (not a DTMF frequency, but we do detect it, see below)
-        31226,  // 392Hz, apparently a middle-2 G
-                // 392Hz is:
-                // - 1/2 of 794Hz
-                // - 1/3 of 1176Hz
-                // - 1/4 of 1547Hz
-                // - 1/9 of 3529Hz
-        -1009,  // 2039Hz TODO: why is this frequency useful?
-        -12772, // 2510Hz, which is 8*314Hz
-        -22811, // 2980Hz, which is 2*1490Hz
-        -30555  // 3529Hz, 3*1176Hz, 5*706Hz
-        };
+        27978,
+        26955,
+        25700,
+        24218,
+        19072,
+        16324,
+        13084,
+        9314,
+        15013,
+        11582,
+        7549,
+        3032,
+        -10565,
+        -16502,
+        -22317,
+        -27471
+};
 
 const int16_t DtmfDetector::CONSTANTS_16KHz[COEFF_NUMBER] =
 {
-        31516,
-        31226,
-        30903,
+        31547,
+        31280,
+        30950,
         30555,
-        29335,
-        28379,
-        27316,
-        26149,
-        29768,
-        32008,
-        32752,
-        32628,
-        32518,
-        32380,
-        22812,
-        18097,
-        12777,
-        6026
+        29142,
+        28359,
+        27408,
+        26257,
+        27978,
+        26955,
+        25700,
+        24218,
+        19072,
+        16324,
+        13084,
+        9314
         };
 
 const int16_t DtmfDetector::CONSTANTS_44_1KHz[COEFF_NUMBER] =
 {
-        32601,
-        32563,
-        32520,
-        32473,
-        32308,
-        32178,
-        32031,
-        31869,
-        32367,
-        32667,
-        32765,
-        32749,
-        32734,
-        32716,
-        31394,
-        30694,
-        29858,
-        28712,
-        };
+        32605,
+        32570,
+        32525,
+        32472,
+        32282,
+        32175,
+        32044,
+        31884,
+        32122,
+        31981,
+        31806,
+        31596,
+        30841,
+        30421,
+        29907,
+        29283
+};
 
 int32_t DtmfDetector::power_threshold_ = 328;
 int32_t DtmfDetector::dial_tones_to_ohers_tones_ = 16;
@@ -511,7 +472,6 @@ DtmfDetector::tone_type_e DtmfDetector::detect_dtmf( int16_t short_array_samples
     goertzel_filter( CONSTANTS[10], CONSTANTS[11], internal_array_, &T[10], &T[11], SAMPLES );
     goertzel_filter( CONSTANTS[12], CONSTANTS[13], internal_array_, &T[12], &T[13], SAMPLES );
     goertzel_filter( CONSTANTS[14], CONSTANTS[15], internal_array_, &T[14], &T[15], SAMPLES );
-    goertzel_filter( CONSTANTS[16], CONSTANTS[17], internal_array_, &T[16], &T[17], SAMPLES );
 
 #if DEBUG
     for (ii = 0; ii < COEFF_NUMBER; ++ii)
